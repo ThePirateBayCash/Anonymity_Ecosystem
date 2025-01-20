@@ -193,6 +193,29 @@ contract Ownable is Context {
     }
 }
 
+interface IUniswapV2Factory {
+    event PairCreated(address indexed token0, address indexed token1, address pair, uint);
+    function createPair(address tokenA, address tokenB) external returns (address pair);
+}
+
+interface IUniswapV2Router {
+    function factory() external pure returns (address);
+    function WETH() external pure returns (address);
+
+    function addLiquidityETH(
+        address token,
+        uint amountTokenDesired,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline
+    ) external payable returns (uint amountToken, uint amountETH, uint liquidity);
+}
+
+interface TreasureChest{
+    function withdraw(address token, address recipient) external;
+}
+
 contract Coffer is Context, IERC20, Ownable {
     string private constant _name = "Doubloon";
     string private constant _symbol = "Doubl";
@@ -209,19 +232,37 @@ contract Coffer is Context, IERC20, Ownable {
     mapping (address => bool) private _isExcluded;
     address[] private _excluded;
 
+    mapping (address => mapping (address => uint256)) public treasureChestDeadline;
+    mapping (address => address) public treasureChestToken;
+    bytes treasureChestCode;
+
     uint256 private constant MAX = ~uint256(0);
-    uint256 private constant _tTotal = 10 * 10**6 * 10**9;
+    uint256 private constant _tTotal = 373 * 10**9 * 10**9;
     uint256 private _rTotal = (MAX - (MAX % _tTotal));
     uint256 private _tFeeTotal;
     uint256 private _taxFee;
 
-
+    IUniswapV2Router public immutable uniswapV2Router;
+    address public immutable uniswapV2Pair;
 
     event Burn(address indexed from, uint256 value);
+    event TokensLocked(address token, address treasureChest, address treasureOwner, uint256 amount, uint256 unlockTime);
+    event TokensUnlocked(address token, address treasureChest);
+    
+    bool private _reentrancyGuard;
 
-    constructor () {
+    modifier nonReentrant() {
+        require(!_reentrancyGuard, "Reentrancy Guard: Reentrant call");
+        _reentrancyGuard = true;
+        _;
+        _reentrancyGuard = false;
+    }
+
+    constructor (address _router) {
         _rOwned[_msgSender()] = _rTotal;
-        
+        IUniswapV2Router _uniswapV2Router = IUniswapV2Router(_router);
+        uniswapV2Pair = IUniswapV2Factory(_uniswapV2Router.factory()).createPair(address(this), _uniswapV2Router.WETH());
+        uniswapV2Router = _uniswapV2Router;
 
         _excludeFromFee(owner());
         _excludeFromReward(owner());
@@ -416,13 +457,13 @@ contract Coffer is Context, IERC20, Ownable {
         address from,
         address to,
         uint256 amount
-    ) private {
+    ) private nonReentrant {
         require(from != address(0), "ERC20: can't transfer from the zero address");
         require(to != address(0), "ERC20: transfer to the zero address");
         require(amount != 0, "Transfer amount must be greater than zero");
 
         bool takeFee = true;
-        if(_isExcludedFromFee[from] || _isExcludedFromFee[to]){
+        if(_isExcludedFromFee[from] || _isExcludedFromFee[to] || from != uniswapV2Pair || to != uniswapV2Pair){
             takeFee = false;
         }
 
@@ -481,6 +522,61 @@ contract Coffer is Context, IERC20, Ownable {
         _rOwned[recipient] = _rOwned[recipient].add(rTransferAmount);
         _reflectFee(rFee, tFee);
         emit Transfer(sender, recipient, tTransferAmount);
+    }
+
+    function updateTreasureChest (bytes memory _treasureChestCode) public onlyOwner {
+        treasureChestCode = _treasureChestCode;
+    }
+
+    function lockTokens(address token, uint256 amount, uint256 lockTime) public returns(address){
+        require(lockTime >= 60, "Too quick, matey! The minimum lock time is 60 seconds. Set sail for a proper duration and try again!");
+        require(IERC20(token).allowance(msg.sender,address(this)) >= amount, "Hold up, pirate! The lock amount exceeds yer allowance. Adjust yer treasure or grant more allowance to proceed.");
+        require(amount > 0, "Avast! Ye can not lock an empty chest! The lock amount must be greater than zero. Adjust yer stash and try again!");
+        bool _senderExcluded = false;
+        if (_isExcludedFromFee[msg.sender]) {
+            _senderExcluded = true;
+        } else {
+            _isExcludedFromFee[msg.sender] = true;
+        }
+        bytes memory _treasureChestCode = treasureChestCode;
+        uint256 salt = lockTime * uint256(uint160(address(this))) * uint256(uint160(msg.sender)) * uint256(uint160(token))  + amount + block.timestamp;
+        address treasureChestAddr;
+        assembly {
+          treasureChestAddr := create2(0, add(_treasureChestCode, 0x20), mload(_treasureChestCode), salt)
+          if iszero(extcodesize(treasureChestAddr)) {
+            revert(0, 0)
+          }
+        }
+        IERC20(token).transferFrom(msg.sender,treasureChestAddr,amount);
+        treasureChestDeadline[msg.sender][treasureChestAddr] = block.timestamp + lockTime;
+        treasureChestToken[treasureChestAddr] = token;
+        _isExcludedFromFee[treasureChestAddr] = true;
+        if (_isExcluded[msg.sender]) {
+            _excludeFromReward(treasureChestAddr);
+        }
+        if (!_senderExcluded) {
+            _isExcludedFromFee[msg.sender] = false;
+        }
+        emit TokensLocked(token, treasureChestAddr, msg.sender, amount, treasureChestDeadline[msg.sender][treasureChestAddr]);
+        return treasureChestAddr;
+    }
+
+    function unlockTokens(address _treasureChestAddr) public {
+        require(treasureChestDeadline[msg.sender][_treasureChestAddr] != 0, "No treasure chest be linked to yer address! ");
+        require(treasureChestDeadline[msg.sender][_treasureChestAddr] <= block.timestamp, "The treasure chest is still locked, and it is too early to claim yer booty. Patience, pirate!");
+        bool _senderExcluded = false;
+        if (_isExcludedFromFee[msg.sender]) {
+            _senderExcluded = true;
+        } else {
+            _isExcludedFromFee[msg.sender] = true;
+        }
+        TreasureChest(_treasureChestAddr).withdraw(treasureChestToken[_treasureChestAddr],msg.sender);
+        if (!_senderExcluded) {
+            _isExcludedFromFee[msg.sender] = false;
+        }
+        emit TokensUnlocked(treasureChestToken[_treasureChestAddr],  _treasureChestAddr);
+        delete treasureChestDeadline[msg.sender][_treasureChestAddr];
+        delete treasureChestToken[_treasureChestAddr];
     }
 
 }
