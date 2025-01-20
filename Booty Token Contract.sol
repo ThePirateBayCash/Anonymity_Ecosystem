@@ -74,17 +74,6 @@ library SafeMath {
     }
 }
 
-abstract contract Context {
-    function _msgSender() internal view virtual returns (address) {
-        return msg.sender;
-    }
-
-    function _msgData() internal view virtual returns (bytes memory) {
-        this; // silence state mutability warning without generating bytecode - see https://github.com/ethereum/solidity/issues/2691
-        return msg.data;
-    }
-}
-
 
 library Address {
     function isContract(address account) internal view returns (bool) {
@@ -141,7 +130,7 @@ library Address {
     }
 }
 
-contract Ownable is Context {
+contract Ownable {
     address private _owner;
     address private _previousOwner;
     uint256 private _lockTime;
@@ -149,7 +138,7 @@ contract Ownable is Context {
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     constructor () {
-        address msgSender = _msgSender();
+        address msgSender = msg.sender;
         _owner = msgSender;
         emit OwnershipTransferred(address(0), msgSender);
     }
@@ -159,7 +148,7 @@ contract Ownable is Context {
     }
 
     modifier onlyOwner() {
-        require(_owner == _msgSender(), "Ownable: caller is not the owner");
+        require(_owner == msg.sender, "Ownable: caller is not the owner");
         _;
     }
 
@@ -174,18 +163,18 @@ contract Ownable is Context {
         _owner = newOwner;
     }
 
-    function geUnlockTime() public view returns (uint256) {
+    function getOwnerUnlockTime() public view returns (uint256) {
         return _lockTime;
     }
 
-    function lock(uint256 time) public virtual onlyOwner {
+    function lockOwner(uint256 time) public virtual onlyOwner {
         _previousOwner = _owner;
         _owner = address(0);
         _lockTime = block.timestamp + time;
         emit OwnershipTransferred(_owner, address(0));
     }
 
-    function unlock() public virtual {
+    function unlockOwner() public virtual {
         require(_previousOwner == msg.sender, "You don't have permission to unlock");
         require(block.timestamp > _lockTime , "It's too early to unlock");
         emit OwnershipTransferred(_owner, _previousOwner);
@@ -216,7 +205,7 @@ interface TreasureChest{
     function withdraw(address token, address recipient) external;
 }
 
-contract Coffer is Context, IERC20, Ownable {
+contract Coffer is IERC20, Ownable {
     string private constant _name = "Doubloon";
     string private constant _symbol = "Doubl";
     uint8 private constant _decimals = 9;
@@ -244,6 +233,7 @@ contract Coffer is Context, IERC20, Ownable {
 
     IUniswapV2Router public immutable uniswapV2Router;
     address public immutable uniswapV2Pair;
+    address public constant burnAddress = 0x000000000000000000000000000000000000dEaD;
 
     event Burn(address indexed from, uint256 value);
     event TokensLocked(address token, address treasureChest, address treasureOwner, uint256 amount, uint256 unlockTime);
@@ -259,7 +249,7 @@ contract Coffer is Context, IERC20, Ownable {
     }
 
     constructor (address _router) {
-        _rOwned[_msgSender()] = _rTotal;
+        _rOwned[msg.sender] = _rTotal;
         IUniswapV2Router _uniswapV2Router = IUniswapV2Router(_router);
         uniswapV2Pair = IUniswapV2Factory(_uniswapV2Router.factory()).createPair(address(this), _uniswapV2Router.WETH());
         uniswapV2Router = _uniswapV2Router;
@@ -268,8 +258,9 @@ contract Coffer is Context, IERC20, Ownable {
         _excludeFromReward(owner());
         _excludeFromFee(address(this));
         _excludeFromReward(address(this));
+        _excludeFromReward(burnAddress);
 
-        emit Transfer(address(0), _msgSender(), _tTotal);
+        emit Transfer(address(0), msg.sender, _tTotal);
     }
     
     function name() public pure returns (string memory) {
@@ -286,7 +277,6 @@ contract Coffer is Context, IERC20, Ownable {
 
     function totalSupply() public pure returns (uint256) {
         return _tTotal;
-
     }
 
     function balanceOf(address account) public view override returns (uint256) {
@@ -295,7 +285,7 @@ contract Coffer is Context, IERC20, Ownable {
     }
 
     function transfer(address recipient, uint256 amount) public override returns (bool) {
-        _transfer(_msgSender(), recipient, amount);
+        _transfer(msg.sender, recipient, amount);
         return true;
     }
 
@@ -304,23 +294,23 @@ contract Coffer is Context, IERC20, Ownable {
     }
 
     function approve(address spender, uint256 amount) public override returns (bool) {
-        _approve(_msgSender(), spender, amount);
+        _approve(msg.sender, spender, amount);
         return true;
     }
 
     function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
         _transfer(sender, recipient, amount);
-        _approve(sender, _msgSender(), _allowances[sender][_msgSender()].sub(amount, "ERC20: transfer amount exceeds allowance"));
+        _approve(sender, msg.sender, _allowances[sender][msg.sender].sub(amount, "ERC20: transfer amount exceeds allowance"));
         return true;
     }
 
     function increaseAllowance(address spender, uint256 addedValue) public virtual returns (bool) {
-        _approve(_msgSender(), spender, _allowances[_msgSender()][spender].add(addedValue));
+        _approve(msg.sender, spender, _allowances[msg.sender][spender].add(addedValue));
         return true;
     }
 
     function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
-        _approve(_msgSender(), spender, _allowances[_msgSender()][spender].sub(subtractedValue, "ERC20: decreased allowance below zero"));
+        _approve(msg.sender, spender, _allowances[msg.sender][spender].sub(subtractedValue, "ERC20: decreased allowance below zero"));
         return true;
     }
 
@@ -330,6 +320,10 @@ contract Coffer is Context, IERC20, Ownable {
 
     function totalFees() public view returns (uint256) {
         return _tFeeTotal;
+    }
+
+    function TaxFee() public view returns (uint256) {
+        return _taxFee;
     }
 
     function reflectionFromToken(uint256 tAmount, bool deductTransferFee) public view returns(uint256) {
@@ -390,7 +384,6 @@ contract Coffer is Context, IERC20, Ownable {
         _rTotal = _rTotal.sub(rFee);
         _tFeeTotal = _tFeeTotal.add(tFee);
     }
-    
 
     function _getValues(uint256 tAmount) private view returns (uint256, uint256, uint256, uint256, uint256) {
         (uint256 tTransferAmount, uint256 tFee) = _getTValues(tAmount);
@@ -463,7 +456,10 @@ contract Coffer is Context, IERC20, Ownable {
         require(amount != 0, "Transfer amount must be greater than zero");
 
         bool takeFee = true;
-        if(_isExcludedFromFee[from] || _isExcludedFromFee[to] || from != uniswapV2Pair || to != uniswapV2Pair){
+        if(_isExcludedFromFee[from] || _isExcludedFromFee[to]) {
+            takeFee = false;
+        }
+        if(from != uniswapV2Pair && to != uniswapV2Pair) {
             takeFee = false;
         }
 
@@ -522,6 +518,11 @@ contract Coffer is Context, IERC20, Ownable {
         _rOwned[recipient] = _rOwned[recipient].add(rTransferAmount);
         _reflectFee(rFee, tFee);
         emit Transfer(sender, recipient, tTransferAmount);
+    }
+
+    function burn (uint256 amount) public {
+        _transfer(msg.sender, burnAddress, amount);
+        emit Burn(msg.sender, amount);
     }
 
     function updateTreasureChest (bytes memory _treasureChestCode) public onlyOwner {
