@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.28;
 
 interface IERC20 {
 
@@ -230,6 +230,7 @@ contract Coffer is IERC20, Ownable {
     uint256 private _rTotal = (MAX - (MAX % _tTotal));
     uint256 private _tFeeTotal;
     uint256 private _taxFee;
+    bool private _takeFee = true;
 
     IUniswapV2Router public immutable uniswapV2Router;
     address public immutable uniswapV2Pair;
@@ -456,7 +457,7 @@ contract Coffer is IERC20, Ownable {
         require(amount != 0, "Transfer amount must be greater than zero");
 
         bool takeFee = true;
-        if(_isExcludedFromFee[from] || _isExcludedFromFee[to]) {
+        if(_isExcludedFromFee[from] || _isExcludedFromFee[to] || !_takeFee) {
             takeFee = false;
         }
         if(from != uniswapV2Pair && to != uniswapV2Pair) {
@@ -523,6 +524,10 @@ contract Coffer is IERC20, Ownable {
     function burn (uint256 amount) public {
         _transfer(msg.sender, burnAddress, amount);
         emit Burn(msg.sender, amount);
+    }
+
+    function TakeFee (bool take) public onlyOwner {
+        _takeFee = take;
     }
 
     function updateTreasureChest (bytes memory _treasureChestCode) public onlyOwner {
