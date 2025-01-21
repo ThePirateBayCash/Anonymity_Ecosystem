@@ -1,12 +1,12 @@
-# Pirate Bay Cash
+# The Pirate Bay Cash
 
-Welcome to the official GitHub repository for **Pirate Bay Cash**! This project represents the ultimate combination of privacy, decentralization, and community-driven innovation. The code in this repository includes the smart contract implementation for Pirate Bay Cash, a revolutionary cryptocurrency ecosystem designed to empower users with privacy-focused tools and rewarding tokenomics.
+Welcome to the official GitHub repository for **The Pirate Bay Cash**! This project represents the ultimate combination of privacy, decentralization, and community-driven innovation. The code in this repository includes the smart contract implementation for The Pirate Bay Cash, a revolutionary cryptocurrency ecosystem designed to empower users with privacy-focused tools and rewarding tokenomics.
 
 ---
 
-## 🌊 About Pirate Bay Cash
+## 🌊 About The Pirate Bay Cash
 
-Pirate Bay Cash is more than just a token; it's an entire ecosystem for the crypto-savvy, privacy-conscious, and reward-seeking pirates of the blockchain seas. Here’s what makes it special:
+The Pirate Bay Cash is more than just a token; it's an entire ecosystem for the crypto-savvy, privacy-conscious, and reward-seeking pirates of the blockchain seas. Here’s what makes it special:
 
 - **Self-Rewarding Tokenomics**: Holders earn reflections from every transaction (9% fee redistributed to all hodlers).
 - **NoKYC Pirate Exchange**: Anonymous, cross-chain swaps using CoinJoin technology.
@@ -87,7 +87,7 @@ For inquiries or support, reach out via:
 
 ## 🏴‍☠️ Disclaimer
 
-Pirate Bay Cash is a decentralized project. Use at your own discretion, and always conduct your own research (DYOR) before investing. The team is not responsible for any financial losses or misuse of the code.
+The Pirate Bay Cash is a decentralized project. Use at your own discretion, and always conduct your own research (DYOR) before investing. The team is not responsible for any financial losses or misuse of the code.
 
 ---
 
