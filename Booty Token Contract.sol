@@ -207,7 +207,7 @@ interface TreasureChest{
 
 contract Coffer is IERC20, Ownable {
     string private constant _name = "Doubloon";
-    string private constant _symbol = "Doubl";
+    string private constant _symbol = "DOUBLOON";
     uint8 private constant _decimals = 9;
 
     using SafeMath for uint256;
@@ -225,11 +225,15 @@ contract Coffer is IERC20, Ownable {
     mapping (address => address) public treasureChestToken;
     bytes treasureChestCode;
 
+    mapping(address => uint256) private _buyBlock;
+    bool public checkBot = true;
+
     uint256 private constant MAX = ~uint256(0);
     uint256 private constant _tTotal = 373 * 10**9 * 10**9;
     uint256 private _rTotal = (MAX - (MAX % _tTotal));
     uint256 private _tFeeTotal;
     uint256 private _taxFee;
+    uint256 public _maxTxAmount;
     bool private _takeFee = true;
 
     IUniswapV2Router public immutable uniswapV2Router;
@@ -247,6 +251,11 @@ contract Coffer is IERC20, Ownable {
         _reentrancyGuard = true;
         _;
         _reentrancyGuard = false;
+    }
+
+    modifier isBot(address from, address to) {
+        if (checkBot) require(_buyBlock[from] != block.number, "Landlubber!");
+        _;
     }
 
     constructor (address _router) {
@@ -343,6 +352,10 @@ contract Coffer is IERC20, Ownable {
         return rAmount.div(currentRate);
     }
 
+    function setCheckBot(bool _status) public onlyOwner {
+        checkBot = _status;
+    }
+
     function excludeFromReward(address account) public onlyOwner() {
         _excludeFromReward(account);
     }
@@ -435,6 +448,10 @@ contract Coffer is IERC20, Ownable {
         _taxFee = 9;
     }
 
+    function MaxTxAmount() public view returns(uint256) {
+        return _tTotal.sub(balanceOf(burnAddress)).mul(5).div(100);
+    }
+
     function isExcludedFromFee(address account) public view returns(bool) {
         return _isExcludedFromFee[account];
     }
@@ -455,7 +472,11 @@ contract Coffer is IERC20, Ownable {
         require(from != address(0), "ERC20: can't transfer from the zero address");
         require(to != address(0), "ERC20: transfer to the zero address");
         require(amount != 0, "Transfer amount must be greater than zero");
-
+        if(msg.sender != owner()) {
+            require(amount <= MaxTxAmount(), "AntiWhale: TX Limit Exceeded");
+        }
+        _beforeTokenTransfer(from, to);
+        
         bool takeFee = true;
         if(_isExcludedFromFee[from] || _isExcludedFromFee[to] || !_takeFee) {
             takeFee = false;
@@ -465,6 +486,13 @@ contract Coffer is IERC20, Ownable {
         }
 
         _tokenTransfer(from,to,amount,takeFee);
+    }
+
+    function _beforeTokenTransfer(
+        address from,
+        address to
+    ) private isBot(from, to) {
+        _buyBlock[to] = block.number;
     }
 
     function _tokenTransfer(address sender, address recipient, uint256 amount,bool takeFee) private {
