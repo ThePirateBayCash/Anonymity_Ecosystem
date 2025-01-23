@@ -208,7 +208,7 @@ interface TreasureChest{
 contract Coffer is IERC20, Ownable {
     string private constant _name = "Doubloon";
     string private constant _symbol = "DOUBLOON";
-    uint8 private constant _decimals = 9;
+    uint8 private constant _decimals = 18;
 
     using SafeMath for uint256;
     using Address for address;
@@ -229,7 +229,7 @@ contract Coffer is IERC20, Ownable {
     bool public checkBot = true;
 
     uint256 private constant MAX = ~uint256(0);
-    uint256 private constant _tTotal = 373 * 10**9 * 10**9;
+    uint256 private constant _tTotal = 373 * 10**9 * 10**_decimals;
     uint256 private _rTotal = (MAX - (MAX % _tTotal));
     uint256 private _tFeeTotal;
     uint256 private _taxFee;
