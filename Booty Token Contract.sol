@@ -158,7 +158,7 @@ contract Ownable {
     }
 
     function transferOwnership(address newOwner) public virtual onlyOwner {
-        require(newOwner != address(0), "Ownable: new owner can't be the zero address");
+        require(newOwner != address(0), "Ownable: new owner cannot be the zero address");
         emit OwnershipTransferred(_owner, newOwner);
         _owner = newOwner;
     }
@@ -247,7 +247,7 @@ contract Coffer is IERC20, Ownable {
     bool private _reentrancyGuard;
 
     modifier nonReentrant() {
-        require(!_reentrancyGuard, "Reentrancy Guard: Reentrant call");
+        require(!_reentrancyGuard, "Reentrancy Guard: Ye cannot be trying to loot the same twice!");
         _reentrancyGuard = true;
         _;
         _reentrancyGuard = false;
@@ -310,7 +310,7 @@ contract Coffer is IERC20, Ownable {
 
     function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
         _transfer(sender, recipient, amount);
-        _approve(sender, msg.sender, _allowances[sender][msg.sender].sub(amount, "ERC20: transfer amount exceeds allowance"));
+        _approve(sender, msg.sender, _allowances[sender][msg.sender].sub(amount, "Ye cannot send more doubloons than allowed!"));
         return true;
     }
 
@@ -320,7 +320,7 @@ contract Coffer is IERC20, Ownable {
     }
 
     function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
-        _approve(msg.sender, spender, _allowances[msg.sender][spender].sub(subtractedValue, "ERC20: decreased allowance below zero"));
+        _approve(msg.sender, spender, _allowances[msg.sender][spender].sub(subtractedValue, "Ye cannot be left with less than naught in yer allowance!"));
         return true;
     }
 
@@ -337,7 +337,7 @@ contract Coffer is IERC20, Ownable {
     }
 
     function reflectionFromToken(uint256 tAmount, bool deductTransferFee) public view returns(uint256) {
-        require(tAmount <= _tTotal, "Amount must be less than supply");
+        require(tAmount <= _tTotal, "Amount must be less than the total doubloons aboard!");
         (uint256 rAmount, uint256 rTransferAmount,,,) = _getValues(tAmount);
         if (!deductTransferFee) {
             return rAmount;
@@ -347,7 +347,7 @@ contract Coffer is IERC20, Ownable {
     }
 
     function tokenFromReflection(uint256 rAmount) public view returns(uint256) {
-        require(rAmount <= _rTotal, "Amount must be less than total reflections");
+        require(rAmount <= _rTotal, "Amount must be less than the total plundered reflections!");
         uint256 currentRate =  _getRate();
         return rAmount.div(currentRate);
     }
@@ -361,7 +361,7 @@ contract Coffer is IERC20, Ownable {
     }
 
     function _excludeFromReward(address account) private {
-        require(!_isExcluded[account], "Account is already excluded");
+        require(!_isExcluded[account], "This pirate is already sailing under special conditions!");
         if(_rOwned[account] > 0) {
             _tOwned[account] = tokenFromReflection(_rOwned[account]);
         }
@@ -457,8 +457,8 @@ contract Coffer is IERC20, Ownable {
     }
 
     function _approve(address owner, address spender, uint256 amount) private {
-        require(owner != address(0), "ERC20: can't approve from the zero address");
-        require(spender != address(0), "ERC20: can't approve to the zero address");
+        require(owner != address(0), "Ye cannot approve from a ship that does not exist!");
+        require(spender != address(0), "Ye cannot approve to a ship that does not exist!");
 
         _allowances[owner][spender] = amount;
         emit Approval(owner, spender, amount);
@@ -469,11 +469,11 @@ contract Coffer is IERC20, Ownable {
         address to,
         uint256 amount
     ) private nonReentrant {
-        require(from != address(0), "ERC20: can't transfer from the zero address");
-        require(to != address(0), "ERC20: transfer to the zero address");
-        require(amount != 0, "Transfer amount must be greater than zero");
+        require(from != address(0), "Ye cannot send from a ship that does not exist!");
+        require(to != address(0), "Ye cannot transfer doubloons to a ship that does not exist!");
+        require(amount != 0, "Ye cannot send naught: transfer amount must be above zero!");
         if(msg.sender != owner()) {
-            require(amount <= MaxTxAmount(), "AntiWhale: TX Limit Exceeded");
+            require(amount <= MaxTxAmount(), "AntiWhale: Yer transaction be too large for the seas!");
         }
         _beforeTokenTransfer(from, to);
         
