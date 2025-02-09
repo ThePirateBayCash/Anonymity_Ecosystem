@@ -10,23 +10,9 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-interface IUniswapV2Factory {
-    event PairCreated(address indexed token0, address indexed token1, address indexed pair, uint);
-    function createPair(address tokenA, address tokenB) external returns (address pair);
-}
-
-interface IUniswapV2Router {
-    function factory() external pure returns (address);
-    function WETH() external pure returns (address);
-
-    function addLiquidityETH(
-        address token,
-        uint amountTokenDesired,
-        uint amountTokenMin,
-        uint amountETHMin,
-        address to,
-        uint deadline
-    ) external payable returns (uint amountToken, uint amountETH, uint liquidity);
+interface IUniswapPair {
+    function token0() external view returns (address);
+    function token1() external view returns (address);
 }
 
 interface TreasureChest{
@@ -65,19 +51,16 @@ contract Coffer is IERC20, Ownable, ReentrancyGuard {
     uint256 public _maxTxAmount;
     uint8 private _maxTxAmountPercent;
     bool private _takeFee = true;
-
-    IUniswapV2Router public immutable uniswapV2Router;
-    address public immutable uniswapV2Pair;
     address public constant burnAddress = 0x000000000000000000000000000000000000dEaD;
 
     event Burn(address indexed from, uint256 indexed value);
-    event TokensLocked(address indexed token, address indexed treasureChest, address indexed treasureOwner, uint256 amount, uint256 unlockTime);
-    event TokensUnlocked(address indexed token, address indexed treasureChest);
+    event TokensLocked(address indexed beneficiary, address indexed token, address treasureChest, uint256 amount, uint256 indexed releaseTimestamp);
+    event TokensUnlocked(address indexed beneficiary, address indexed token, address indexed treasureChest);
     
     modifier isBot(address from, address to) {
         if (checkBot) {
-            address buyer = (from == uniswapV2Pair) ? to :
-                            (to == uniswapV2Pair) ? from : address(0);
+            address buyer = (isLPPair(from)) ? to :
+                            (isLPPair(to)) ? from : address(0);
             require(buyer == address(0) || block.timestamp >= _lastBuyTime[buyer] + botCooldown, "Cooldown landlubber!");
             if (buyer != address(0)) {
                 _lastBuyTime[buyer] = block.timestamp;
@@ -86,11 +69,8 @@ contract Coffer is IERC20, Ownable, ReentrancyGuard {
         _;
     }
 
-    constructor (address _router) Ownable(msg.sender) {
+    constructor() Ownable(msg.sender) {
         _rOwned[msg.sender] = _rTotal;
-        IUniswapV2Router _uniswapV2Router = IUniswapV2Router(_router);
-        uniswapV2Pair = IUniswapV2Factory(_uniswapV2Router.factory()).createPair(address(this), _uniswapV2Router.WETH());
-        uniswapV2Router = _uniswapV2Router;
 
         _excludeFromFee(owner());
         _excludeFromReward(owner());
@@ -295,6 +275,21 @@ contract Coffer is IERC20, Ownable, ReentrancyGuard {
         _maxTxAmountPercent = percent;
     }
 
+    function isLPPair(address target) public view returns (bool) {
+        if (target.code.length == 0) {
+            return false;
+        }
+        try IUniswapPair(target).token1() returns (address) {
+            if (IUniswapPair(target).token0() == address(this) || IUniswapPair(target).token1() == address(this)) {
+                return true;
+            } else {
+                return false;
+            }
+        } catch {
+            return false;
+        }
+    }
+
     function isExcludedFromFee(address account) external view returns(bool) {
         return _isExcludedFromFee[account];
     }
@@ -315,16 +310,20 @@ contract Coffer is IERC20, Ownable, ReentrancyGuard {
         require(from != address(0), "Ye cannot send from a ship that does not exist!");
         require(to != address(0), "Ye cannot transfer doubloons to a ship that does not exist!");
         require(amount != 0, "Ye cannot send naught: transfer amount must be above zero!");
-        if(msg.sender != owner()) {
-            require(amount <= MaxTxAmount(), "AntiWhale: Yer transaction be too large for the seas!");
+        if(msg.sender != owner() || isLPPair(from) || isLPPair(to)) {
+            require(amount <= MaxTxAmount(), "AntiWhale: Yer trade transaction be too large for the seas!");
         }
         
         bool takeFee = true;
-        if(_isExcludedFromFee[from] || _isExcludedFromFee[to] || !_takeFee || (from != uniswapV2Pair && to != uniswapV2Pair)) {
+        if(_isExcludedFromFee[from] || _isExcludedFromFee[to] || !_takeFee || (!isLPPair(from) && !isLPPair(to))) {
             takeFee = false;
         }
 
         _tokenTransfer(from,to,amount,takeFee);
+
+        if (isLPPair(to) && !_isExcluded[to]) {
+            _excludeFromReward(to);            
+        }
     }
 
     function _tokenTransfer(address sender, address recipient, uint256 amount,bool takeFee) private {
@@ -423,7 +422,7 @@ contract Coffer is IERC20, Ownable, ReentrancyGuard {
         if (!_senderExcluded) {
             _isExcludedFromFee[msg.sender] = false;
         }
-        emit TokensLocked(token, treasureChestAddr, msg.sender, amount, treasureChestDeadline[msg.sender][treasureChestAddr]);
+        emit TokensLocked(msg.sender, token, treasureChestAddr, amount, treasureChestDeadline[msg.sender][treasureChestAddr]);
         return treasureChestAddr;
     }
 
@@ -440,7 +439,7 @@ contract Coffer is IERC20, Ownable, ReentrancyGuard {
         if (!_senderExcluded) {
             _isExcludedFromFee[msg.sender] = false;
         }
-        emit TokensUnlocked(treasureChestToken[_treasureChestAddr],  _treasureChestAddr);
+        emit TokensUnlocked(msg.sender, treasureChestToken[_treasureChestAddr],  _treasureChestAddr);
         delete treasureChestDeadline[msg.sender][_treasureChestAddr];
         delete treasureChestToken[_treasureChestAddr];
     }
