@@ -48,8 +48,9 @@ The codebase includes the following key sections:
     - **Fixed** 9% of every buy or sell transaction is distributed among hodlers, tax percent cannot be changed only turned off/on.
     - Transaction fees and redistribution logic. No hidden fees.
 2. **Functions**
-    - Core ERC-20 functionality (`transfer`, `approve`, etc.).
+    - Improved security of core functions with SafeERC20 and ReentrancyGuard..
     - Custom fee logic and reflection calculations.
+    - Fees apply only on transactions to or from liquid pairs with this token.
 3. **Modifiers and Safeguards**
     - Anti-whale mechanisms.
     - Anti-bot protection.
