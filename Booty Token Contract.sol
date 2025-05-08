@@ -53,6 +53,10 @@ contract Coffer is IERC20, Ownable, ReentrancyGuard {
     bool private _takeFee = true;
     address public constant burnAddress = 0x000000000000000000000000000000000000dEaD;
 
+    event CheckBotUpdated(bool status);
+    event ChangedMaxTxAmountPercent(uint8 percent);
+    event ChangedTakeFee(bool take);
+    event TreasureChestUpdated(bool updated);
     event Burn(address indexed from, uint256 indexed value);
     event TokensLocked(address indexed beneficiary, address indexed token, address treasureChest, uint256 amount, uint256 indexed releaseTimestamp);
     event TokensUnlocked(address indexed beneficiary, address indexed token, address indexed treasureChest);
@@ -169,6 +173,7 @@ contract Coffer is IERC20, Ownable, ReentrancyGuard {
 
     function setCheckBot(bool _status) external onlyOwner {
         checkBot = _status;
+        emit CheckBotUpdated(_status);
     }
 
     function excludeFromReward(address account) external onlyOwner() {
@@ -273,6 +278,7 @@ contract Coffer is IERC20, Ownable, ReentrancyGuard {
     function setMaxTxAmountPercent(uint8 percent) external onlyOwner {
         require (percent >= 1 && percent <= 100, "1% minimum possible value");
         _maxTxAmountPercent = percent;
+        emit ChangedMaxTxAmountPercent(percent);
     }
 
     function isLPPair(address target) public view returns (bool) {
@@ -387,10 +393,12 @@ contract Coffer is IERC20, Ownable, ReentrancyGuard {
 
     function TakeFee (bool take) external onlyOwner {
         _takeFee = take;
+        emit ChangedTakeFee(take);
     }
 
     function updateTreasureChest (bytes calldata _treasureChestCode) external onlyOwner {
         treasureChestCode = _treasureChestCode;
+        emit TreasureChestUpdated(true);
     }
 
     function lockTokens(address token, uint256 amount, uint256 lockTime) external nonReentrant returns(address){
