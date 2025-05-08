@@ -20,7 +20,7 @@ interface TreasureChest{
 }
 
 contract Coffer is IERC20, Ownable, ReentrancyGuard {
-    string private constant _name = "Doubloon";
+    string private constant _name = "The Pirate Bay Cash";
     string private constant _symbol = "DOUBLOON";
     uint8 private constant _decimals = 18;
 
