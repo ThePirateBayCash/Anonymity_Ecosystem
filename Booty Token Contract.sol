@@ -44,7 +44,7 @@ contract Coffer is IERC20, Ownable, ReentrancyGuard {
     uint8 public constant botCooldown  = 30; // 30 seconds AntiBot protection
 
     uint256 private constant MAX = ~uint256(0);
-    uint256 private constant _tTotal = 373 * 10**9 * 10**_decimals;
+    uint256 private constant _tTotal = 373 * 10**6 * 10**_decimals;
     uint256 private _rTotal = (MAX - (MAX % _tTotal));
     uint256 private _tFeeTotal;
     uint8 private _taxFee = 9; // Reflections hardcoded 9%
